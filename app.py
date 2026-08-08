@@ -30,6 +30,15 @@ if not AUTH_PASSWORD:
 
 app = Flask(__name__)
 
+
+@app.after_request
+def no_cache(response):
+    # Prevent the browser from caching a stale copy of the page/JS across updates.
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
 # In-memory job tracker: job_id -> {status, filename, error, title, batch_id, query}
 JOBS = {}
 JOBS_LOCK = threading.Lock()
@@ -126,13 +135,19 @@ def run_download(job_id: str, query: str):
         "quiet": True,
         "no_warnings": True,
         "default_search": "ytsearch1",
+        # Prefer the Android client — YouTube's bot-detection blocks the
+        # default web client with 403s far more often than mobile clients.
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(query, download=True)
             if "entries" in info:  # search results come back wrapped
-                info = info["entries"][0]
+                entries = [e for e in info["entries"] if e]
+                if not entries:
+                    raise RuntimeError(f"No YouTube result found for \"{query}\".")
+                info = entries[0]
             title = info.get("title", "audio")
         mp3_files = [f for f in os.listdir(job_dir) if f.endswith(".mp3")]
         if not mp3_files:
