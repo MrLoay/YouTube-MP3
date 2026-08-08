@@ -1,0 +1,7 @@
+# Reverse proxy that gives you free automatic HTTPS on your DuckDNS domain.
+# Replace yourname.duckdns.org with your actual DuckDNS domain.
+# Requires router ports 80 and 443 forwarded to this PC (see README.md).
+
+yourname.duckdns.org {
+    reverse_proxy localhost:8443
+}
